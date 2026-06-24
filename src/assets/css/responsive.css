@@ -1,0 +1,27 @@
+/*768 이하*/
+@media (max-width: 768px){
+  .pc{
+    display: none !important;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*769이상*/
+@media (min-width:769px){
+  .mob{
+    display: none !important;
+  }
+}
