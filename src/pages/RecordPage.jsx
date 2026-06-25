@@ -12,23 +12,24 @@ import { useState } from "react";
 import { Search, X, Dumbbell, Timer, Plus, Check, ListPlus } from "lucide-react";
 import { EXERCISES, EXERCISE_MAP, FREQUENT_IDS, ROUTINES } from "../data/exercises";
 import { getLastRecord, getFrequentExercises } from "../data/workoutData";
+import { toUnit, toKg, defaultWeight } from "../data/units";
 
 const WD = ["일", "월", "화", "수", "목", "금", "토"];
 
 // 부위 목록 (운동 DB에서 등장 순서대로 중복 제거)
 const PARTS = [...new Set(EXERCISES.map((e) => e.part))];
 
-// "지난 기록"을 사람이 읽는 문구로 (힌트용)
-function lastSummary(last, type) {
+// "지난 기록"을 사람이 읽는 문구로 (힌트용). 무게는 표시 단위로 변환.
+function lastSummary(last, type, unit) {
   if (!last) return null;
   if (type === "weight") {
-    const sets = last.sets.map((s) => `${s.weight}×${s.reps}`).join(" · ");
+    const sets = last.sets.map((s) => `${toUnit(s.weight, unit)}×${s.reps}`).join(" · ");
     return `지난번 ${last.day}일 · ${sets}`;
   }
   return `지난번 ${last.day}일 · ${last.dist}km ${last.time}분`;
 }
 
-function RecordPage({ theme, toggleTheme, sessions, editDay, onSave, onNavigate }) {
+function RecordPage({ theme, toggleTheme, sessions, editDay, onSave, onNavigate, unit }) {
   const now = new Date();
   const today = now.getDate();
   const isEditing = editDay != null; // 수정 모드인가
@@ -42,7 +43,13 @@ function RecordPage({ theme, toggleTheme, sessions, editDay, onSave, onNavigate 
     const last = getLastRecord(sessions, ex.id, targetDay);
     const base = { uid: ex.id + "-" + Date.now(), ex, last };
     if (ex.type === "weight") {
-      return { ...base, sets: last ? last.sets.map((s) => ({ ...s })) : [{ weight: 20, reps: 10 }] };
+      // 카드 안에서는 표시 단위로 편집(저장 시 kg로 환산)
+      return {
+        ...base,
+        sets: last
+          ? last.sets.map((s) => ({ weight: toUnit(s.weight, unit), reps: s.reps }))
+          : [{ weight: defaultWeight(unit), reps: 10 }],
+      };
     }
     return { ...base, time: last ? last.time : 30, dist: last ? last.dist : 5 };
   };
@@ -53,7 +60,7 @@ function RecordPage({ theme, toggleTheme, sessions, editDay, onSave, onNavigate 
     const last = getLastRecord(sessions, r.exId, targetDay);
     const base = { uid: r.exId + "-" + Math.random().toString(36).slice(2), ex, last };
     return ex.type === "weight"
-      ? { ...base, sets: r.sets.map((s) => ({ ...s })) }
+      ? { ...base, sets: r.sets.map((s) => ({ weight: toUnit(s.weight, unit), reps: s.reps })) }
       : { ...base, time: r.time, dist: r.dist };
   };
 
@@ -145,7 +152,14 @@ function RecordPage({ theme, toggleTheme, sessions, editDay, onSave, onNavigate 
     if (entries.length === 0 && !isEditing) return;
     const records = entries.map((en) =>
       en.ex.type === "weight"
-        ? { exId: en.ex.id, sets: en.sets.map((s) => ({ weight: Number(s.weight) || 0, reps: Number(s.reps) || 0 })) }
+        ? {
+            exId: en.ex.id,
+            // 표시 단위로 입력된 무게를 저장용 kg로 환산
+            sets: en.sets.map((s) => ({
+              weight: toKg(Number(s.weight) || 0, unit),
+              reps: Number(s.reps) || 0,
+            })),
+          }
         : { exId: en.ex.id, time: Number(en.time) || 0, dist: Number(en.dist) || 0 }
     );
     onSave(records);
@@ -312,7 +326,7 @@ function RecordPage({ theme, toggleTheme, sessions, editDay, onSave, onNavigate 
 
               {/* 지난 기록 힌트 (있을 때만) */}
               {en.last && (
-                <div className="last-hint">{lastSummary(en.last, en.ex.type)}</div>
+                <div className="last-hint">{lastSummary(en.last, en.ex.type, unit)}</div>
               )}
 
               {/* 타입별 입력칸 자동 분기 */}
@@ -329,7 +343,7 @@ function RecordPage({ theme, toggleTheme, sessions, editDay, onSave, onNavigate 
                           value={s.weight}
                           onChange={(e) => updateSet(en.uid, i, "weight", e.target.value)}
                         />
-                        <span className="set-unit">kg</span>
+                        <span className="set-unit">{unit}</span>
                       </span>
                       <span className="set-x-mark">×</span>
                       <span className="set-box">
@@ -362,7 +376,7 @@ function RecordPage({ theme, toggleTheme, sessions, editDay, onSave, onNavigate 
                         .reduce((sum, s) => sum + (Number(s.weight) || 0) * (Number(s.reps) || 0), 0)
                         .toLocaleString()}
                     </b>
-                    kg
+                    {unit}
                   </div>
                 </div>
               ) : (

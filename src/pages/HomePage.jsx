@@ -9,8 +9,13 @@
 // ※ 지금은 전부 "가짜 데이터". 나중에 DB(sessions/records)와 연결.
 // ============================================
 
-import { Plus, Flame, CalendarCheck, Dumbbell, ChevronRight, Check } from "lucide-react";
-import { expandRecord } from "../data/workoutData";
+import { Plus, Flame, CalendarCheck, Clock, ChevronRight, Check } from "lucide-react";
+import {
+  expandRecord,
+  getStreak,
+  getWeekCount,
+  getTotalMinutes,
+} from "../data/workoutData";
 
 // ── 이번 달 달력 칸들을 만든다 ─────────────────────────
 //    앞쪽 빈칸(1일이 무슨 요일인지) + 1일~말일
@@ -26,11 +31,7 @@ function buildCalendar(year, month) {
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
-// 이번 주 목표 (가짜) — 나중에 사용자 설정값으로
-const WEEKLY_GOAL = 4;
-const WEEKLY_DONE = 3;
-
-function HomePage({ theme, toggleTheme, onNavigate, onOpenDay, sessions }) {
+function HomePage({ theme, toggleTheme, onNavigate, onOpenDay, sessions, weeklyGoal }) {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
@@ -57,8 +58,13 @@ function HomePage({ theme, toggleTheme, onNavigate, onOpenDay, sessions }) {
     todaySummary = `${mainPart} · ${todaySession.records.length}종목 · ${todaySession.duration}분`;
   }
 
+  // 실제 통계 (sessions에서 계산) — 마이페이지와 같은 데이터 계층 함수 사용
+  const streak = getStreak(sessions, today);
+  const weeklyDone = getWeekCount(sessions, now);
+  const totalHours = (getTotalMinutes(sessions) / 60).toFixed(1);
+
   const cells = buildCalendar(year, month);
-  const goalPct = Math.min(100, Math.round((WEEKLY_DONE / WEEKLY_GOAL) * 100));
+  const goalPct = Math.min(100, Math.round((weeklyDone / weeklyGoal) * 100));
 
   return (
     <div className="page">
@@ -105,16 +111,16 @@ function HomePage({ theme, toggleTheme, onNavigate, onOpenDay, sessions }) {
         <div className="goal-top">
           <span className="goal-label">이번 주 목표</span>
           <span className="goal-num">
-            {WEEKLY_DONE} / {WEEKLY_GOAL}회
+            {weeklyDone} / {weeklyGoal}회
           </span>
         </div>
         <div className="goal-bar">
           <div className="goal-fill" style={{ width: `${goalPct}%` }} />
         </div>
         <div className="goal-msg">
-          {WEEKLY_DONE >= WEEKLY_GOAL
+          {weeklyDone >= weeklyGoal
             ? "이번 주 목표 달성! 🎉"
-            : `목표까지 ${WEEKLY_GOAL - WEEKLY_DONE}번 남았어요`}
+            : `목표까지 ${weeklyGoal - weeklyDone}번 남았어요`}
         </div>
       </div>
 
@@ -126,7 +132,8 @@ function HomePage({ theme, toggleTheme, onNavigate, onOpenDay, sessions }) {
             연속
           </div>
           <div className="s-val">
-            4<span className="s-unit">일</span>
+            {streak}
+            <span className="s-unit">일</span>
           </div>
         </div>
         <div className="stat">
@@ -141,11 +148,12 @@ function HomePage({ theme, toggleTheme, onNavigate, onOpenDay, sessions }) {
         </div>
         <div className="stat">
           <div className="s-top">
-            <Dumbbell size={14} style={{ color: "var(--blue)" }} />
-            누적
+            <Clock size={14} style={{ color: "var(--blue)" }} />
+            누적 시간
           </div>
           <div className="s-val">
-            48<span className="s-unit">회</span>
+            {totalHours}
+            <span className="s-unit">시간</span>
           </div>
         </div>
       </div>

@@ -10,11 +10,12 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Dumbbell, Timer, Plus, Pencil } from "lucide-react";
 import { expandRecord } from "../data/workoutData";
+import { toUnit } from "../data/units";
 
 const WD = ["일", "월", "화", "수", "목", "금", "토"];
 const CLOSE_THRESHOLD = 110; // 이만큼 내리면 닫힘
 
-function DaySheet({ day, sessions, onClose, onEdit }) {
+function DaySheet({ day, sessions, unit, onClose, onEdit }) {
   // 끌어내린 거리(px)와 드래그 중 여부
   const [dragY, setDragY] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -122,7 +123,7 @@ function DaySheet({ day, sessions, onClose, onEdit }) {
                     </div>
                     <div className="rec-detail">
                       {r.type === "weight"
-                        ? r.sets.map((s) => `${s.weight}kg×${s.reps}`).join(" · ")
+                        ? r.sets.map((s) => `${toUnit(s.weight, unit)}${unit}×${s.reps}`).join(" · ")
                         : `${r.dist}km · ${r.time}분`}
                     </div>
                   </div>

@@ -80,6 +80,56 @@ export function getFrequentExercises(sessions, limit = 6) {
     .slice(0, limit);
 }
 
+// ── 통계 계산 (홈·마이에서 공용) ───────────────────────
+// 전부 sessions(가짜)에서 즉석 계산 → DB로 바뀌어도 화면 로직 그대로.
+// ※ prototype은 "이번 달" 데이터만 다룸(세션 키 = 그 달의 '일').
+
+// 연속 운동 일수: 오늘부터 거슬러 셈. 오늘 안 했으면 어제부터 시작(끊긴 건 아님).
+export function getStreak(sessions, refDay = new Date().getDate()) {
+  let day = refDay;
+  if (!sessions[day]) day -= 1; // 오늘 아직 안 했으면 어제부터
+  let streak = 0;
+  while (day >= 1 && sessions[day]) {
+    streak += 1;
+    day -= 1;
+  }
+  return streak;
+}
+
+// 이번 주(일~토) 운동 횟수 — 홈 주간 목표 진행바에 사용
+export function getWeekCount(sessions, ref = new Date()) {
+  const weekStart = ref.getDate() - ref.getDay(); // 이번 주 일요일의 '일'
+  const weekEnd = weekStart + 6;
+  return Object.keys(sessions)
+    .map(Number)
+    .filter((d) => d >= weekStart && d <= weekEnd).length;
+}
+
+// 누적 운동 시간(분) — 각 세션 duration 합
+export function getTotalMinutes(sessions) {
+  return Object.values(sessions).reduce((a, s) => a + (s.duration || 0), 0);
+}
+
+// 부위별 비중(이번 달) — 운동 종목 등장 횟수 기준. [{part, count, pct}] 내림차순.
+export function getPartBreakdown(sessions) {
+  const counts = {};
+  let total = 0;
+  Object.values(sessions).forEach((s) =>
+    s.records.forEach((r) => {
+      const part = EXERCISE_MAP[r.exId]?.part || "기타";
+      counts[part] = (counts[part] || 0) + 1;
+      total += 1;
+    })
+  );
+  return Object.entries(counts)
+    .map(([part, count]) => ({
+      part,
+      count,
+      pct: total ? Math.round((count / total) * 100) : 0,
+    }))
+    .sort((a, b) => b.count - a.count);
+}
+
 // 특정 운동의 "지난 기록" 찾기 (beforeDay 이전에서 가장 최근). 없으면 null.
 // → 기록 화면에서 기본값 자동 채움 + "지난번 …" 힌트에 사용
 export function getLastRecord(sessions, exId, beforeDay) {

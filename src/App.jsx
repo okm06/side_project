@@ -47,6 +47,15 @@ function App() {
   // ───────────────────────────────────────────
   const [sessions, setSessions] = useState(() => buildInitialSessions());
 
+  // ───────────────────────────────────────────
+  // [핵심 5] 사용자 설정 — 마이페이지에서 바꾸면 앱 전체에 반영.
+  //   - weeklyGoal: 홈 주간 목표바
+  //   - unit: 무게 단위(kg/lb). 저장은 kg, 표시/입력만 변환.
+  //   지금은 메모리(새로고침 시 기본값). 영속화는 sessions와 함께 나중에.
+  // ───────────────────────────────────────────
+  const [weeklyGoal, setWeeklyGoal] = useState(4);
+  const [unit, setUnit] = useState("kg");
+
   // 저장 처리: 수정 모드면 그 날에 "덮어쓰기", 아니면 오늘에 "이어붙이기"
   const handleSave = (records) => {
     if (!records) return;
@@ -104,6 +113,7 @@ function App() {
             onNavigate={navigate}
             onOpenDay={setDetailDay}
             sessions={sessions}
+            weeklyGoal={weeklyGoal}
           />
         );
       case "rec":
@@ -116,12 +126,31 @@ function App() {
             editDay={editDay}
             onSave={handleSave}
             onNavigate={navigate}
+            unit={unit}
           />
         );
       case "graph":
-        return <GraphPage theme={theme} toggleTheme={toggleTheme} sessions={sessions} />;
+        return (
+          <GraphPage
+            theme={theme}
+            toggleTheme={toggleTheme}
+            sessions={sessions}
+            unit={unit}
+          />
+        );
       case "my":
-        return <MyPage theme={theme} toggleTheme={toggleTheme} />;
+        return (
+          <MyPage
+            theme={theme}
+            toggleTheme={toggleTheme}
+            sessions={sessions}
+            onNavigate={navigate}
+            weeklyGoal={weeklyGoal}
+            setWeeklyGoal={setWeeklyGoal}
+            unit={unit}
+            setUnit={setUnit}
+          />
+        );
       default:
         return <HomePage theme={theme} toggleTheme={toggleTheme} />;
     }
@@ -154,6 +183,7 @@ function App() {
       <DaySheet
         day={detailDay}
         sessions={sessions}
+        unit={unit}
         onClose={() => setDetailDay(null)}
         onEdit={startEdit}
       />

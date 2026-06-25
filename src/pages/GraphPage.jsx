@@ -8,9 +8,21 @@
 // ============================================
 
 import { useState } from "react";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, PieChart } from "lucide-react";
 import { EXERCISE_MAP } from "../data/exercises";
-import { getFrequentExercises } from "../data/workoutData";
+import { getFrequentExercises, getPartBreakdown } from "../data/workoutData";
+import { toUnit } from "../data/units";
+
+// 부위별 막대 색 (테마 변수 재사용 — 3색 순환)
+const PART_COLORS = {
+  가슴: "var(--blue)",
+  등: "var(--accent)",
+  어깨: "var(--amber)",
+  하체: "var(--blue)",
+  팔: "var(--accent)",
+  코어: "var(--amber)",
+  유산소: "var(--amber)",
+};
 
 // 지표 정의 (타입별)
 const METRICS = {
@@ -34,20 +46,28 @@ function metricValue(rec, metric) {
 }
 
 // 선택 운동의 날짜별 추이 [{day, value}, ...] (날짜 오름차순)
-function buildSeries(sessions, exId, metric) {
+// 무게 지표(max/volume)는 표시 단위로 환산. 유산소(dist/time)는 그대로.
+function buildSeries(sessions, exId, metric, unit) {
+  const isWeightMetric = metric === "max" || metric === "volume";
   return Object.keys(sessions)
     .map(Number)
     .sort((a, b) => a - b)
     .map((d) => {
       const rec = sessions[d].records.find((r) => r.exId === exId);
-      return rec ? { day: d, value: metricValue(rec, metric) } : null;
+      if (!rec) return null;
+      const v = metricValue(rec, metric);
+      return { day: d, value: isWeightMetric ? toUnit(v, unit) : v };
     })
     .filter(Boolean);
 }
 
-function GraphPage({ theme, toggleTheme, sessions }) {
+function GraphPage({ theme, toggleTheme, sessions, unit }) {
   // 기록이 있는 운동들 (많이 한 순)
   const historyIds = getFrequentExercises(sessions, 999);
+
+  // 이번 달 부위별 비중
+  const breakdown = getPartBreakdown(sessions);
+  const topPct = breakdown[0]?.pct || 0; // 막대 길이를 1등 기준으로 정규화
 
   const [exId, setExId] = useState(historyIds[0] || null);
   const ex = exId ? EXERCISE_MAP[exId] : null;
@@ -55,7 +75,10 @@ function GraphPage({ theme, toggleTheme, sessions }) {
   const [metric, setMetric] = useState(metricsForType[0]?.key || "max");
 
   const metricDef = metricsForType.find((m) => m.key === metric) || metricsForType[0];
-  const series = ex ? buildSeries(sessions, exId, metric) : [];
+  const series = ex ? buildSeries(sessions, exId, metric, unit) : [];
+  // 무게 지표면 단위를 설정값(kg/lb)으로, 유산소면 지표 고유 단위(km/분)
+  const unitLabel =
+    ex && ex.type === "weight" ? unit : metricDef?.unit;
 
   // 운동 바꾸면 지표를 그 타입 기본값으로 초기화
   const onPickExercise = (id) => {
@@ -92,6 +115,35 @@ function GraphPage({ theme, toggleTheme, sessions }) {
         </div>
       ) : (
         <>
+          {/* 이번 달 부위별 비중 — 가로 막대 */}
+          <div className="card pbreak-card">
+            <div className="pbreak-head">
+              <PieChart size={16} />
+              이번 달 부위별 비중
+            </div>
+            <div className="pbreak-list">
+              {breakdown.map((b) => (
+                <div className="pbar" key={b.part}>
+                  <div className="pbar-top">
+                    <span className="pbar-name">{b.part}</span>
+                    <span className="pbar-meta">
+                      <b>{b.count}</b>회 · {b.pct}%
+                    </span>
+                  </div>
+                  <div className="pbar-track">
+                    <div
+                      className="pbar-fill"
+                      style={{
+                        width: `${topPct ? (b.pct / topPct) * 100 : 0}%`,
+                        background: PART_COLORS[b.part] || "var(--accent)",
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* 운동 선택 — 칩으로 한 번 탭 (자주 한 순) */}
           <div className="rec-label">운동 선택</div>
           <div className="part-chips ex-chips">
@@ -128,18 +180,18 @@ function GraphPage({ theme, toggleTheme, sessions }) {
                 </div>
                 <div className="chart-latest">
                   최근 <b>{latest.toLocaleString()}</b>
-                  {metricDef.unit}
+                  {unitLabel}
                 </div>
               </div>
               {values.length > 1 && (
                 <div className={"chart-change" + (change >= 0 ? " up" : " down")}>
                   처음 대비 {change >= 0 ? "+" : ""}
                   {change.toLocaleString()}
-                  {metricDef.unit}
+                  {unitLabel}
                 </div>
               )}
             </div>
-            <LineChart series={series} unit={metricDef.unit} />
+            <LineChart series={series} unit={unitLabel} />
           </div>
 
           {/* 요약 */}
@@ -155,7 +207,7 @@ function GraphPage({ theme, toggleTheme, sessions }) {
               <div className="s-top">최고 기록</div>
               <div className="s-val">
                 {peak.toLocaleString()}
-                <span className="s-unit">{metricDef.unit}</span>
+                <span className="s-unit">{unitLabel}</span>
               </div>
             </div>
             <div className="stat">
